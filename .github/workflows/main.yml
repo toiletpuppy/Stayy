@@ -29,6 +29,6 @@ jobs:
           ls -l Stay.ipa
 
       - name: Upload IPA to GoFile
-        uses: toiletpuppy/gofile-upload@New
+        uses: toiletpuppy/gofile@New
         with:
           files: "Stay.ipa"
