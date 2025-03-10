@@ -12,23 +12,36 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Build the Xcode project
+      - name: Install CocoaPods Dependencies
         run: |
-          # Clean and build the "Stay" scheme in Release configuration.
-          xcodebuild -project Stay.xcodeproj -scheme "Stay" -configuration Release -derivedDataPath build clean build
+          # Install CocoaPods if not already available and run pod install.
+          gem install cocoapods
+          pod install
 
-      - name: Create unsigned IPA
+      - name: Archive the Xcode Project (Disable Code Signing)
         run: |
-          # Create a Payload folder and copy the compiled .app into it.
-          mkdir -p Payload
-          cp -R build/Build/Products/Release-iphoneos/Stay.app Payload/
-          # Zip the Payload folder and rename it to .ipa.
+          # Clean and archive the project with signing disabled.
+          xcodebuild clean archive \
+            -project Stay.xcodeproj \
+            -scheme "Stay" \
+            -configuration Release \
+            -archivePath build/Stay.xcarchive \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Create Unsigned IPA from Archive
+        run: |
+          # The archive (.xcarchive) contains the built app at:
+          #   build/Stay.xcarchive/Products/Applications/Stay.app
+          #
+          # Create a Payload folder, copy the .app, then zip and rename to .ipa.
+          mkdir -p build/Payload
+          cp -R build/Stay.xcarchive/Products/Applications/Stay.app build/Payload/
+          cd build
           zip -r Stay.zip Payload
           mv Stay.zip Stay.ipa
-          # List the resulting IPA to verify
           ls -l Stay.ipa
 
       - name: Upload IPA to GoFile
         uses: toiletpuppy/gofile@New
         with:
-          files: "Stay.ipa"
+          files: "build/Stay.ipa"
