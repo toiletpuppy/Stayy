@@ -10,22 +10,19 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Install CocoaPods
         run: |
-          # Install CocoaPods if not already installed.
           sudo gem install cocoapods
-          # Install pod dependencies (this creates/updates the Pods folder and .xcworkspace)
+          pod repo update
           pod install
 
       - name: Build Unsigned IPA
         run: |
-          # Build the project using the workspace and scheme.
-          # We disable code signing by setting related flags to empty/NO.
-          # Additionally, we override OTHER_LDFLAGS to an empty value to skip linking libraries
-          # (like InterAppCommunication or SDWebImage) that are causing errors.
+          # Build using the workspace created by CocoaPods.
+          # The Podfile currently includes 'InterAppCommunication' and 'SDWebImage'.
           xcodebuild \
             -workspace "Stay.xcworkspace" \
             -scheme "Stay" \
@@ -37,13 +34,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            OTHER_LDFLAGS=""
+            PROVISIONING_PROFILE_SPECIFIER=""
 
-          # Create a Payload directory and copy the built .app into it.
+          # Package the built app into an IPA.
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Stay.app Payload/
-          # Zip the Payload directory and rename it as an IPA.
           zip -r Stay.zip Payload
           mv Stay.zip Stay.ipa
           ls -lh Stay.ipa
