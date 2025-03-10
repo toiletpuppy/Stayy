@@ -1,44 +1,47 @@
-name: iOS Build and IPA
+name: Build Unsigned IPA and Upload
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
-  build:
+  build-and-upload:
     runs-on: macos-latest
+
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4.2.2
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Install CocoaPods
-        run: sudo gem install cocoapods
-
-      - name: Install Pods
-        run: pod install
-
-      - name: Build iOS app (Release scheme)
         run: |
-          xcodebuild -workspace "Stay.xcworkspace" \
+          sudo gem install cocoapods
+          pod repo update
+          pod install
+
+      - name: Build Unsigned IPA
+        run: |
+          xcodebuild \
+            -workspace "Stay.xcworkspace" \
             -scheme "Stay" \
-            -configuration Release \
-            -sdk iphoneos \
+            -configuration "Release" \
+            -sdk "iphoneos" \
             -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
 
-      - name: Package unsigned IPA
-        run: |
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/Stay.app Payload/
-          cd Payload && zip -r ../Stay-unsigned.ipa . && cd ..
+          zip -r Stay.zip Payload
+          mv Stay.zip Stay.ipa
+          ls -lh Stay.ipa
 
-      - name: Upload IPA to bashupload.com
-        run: |
-          echo "Uploading IPA to bashupload.com..."
-          IPA_LINK=$(curl bashupload.com -T Stay-unsigned.ipa)
-          echo "IPA uploaded: ${IPA_LINK}"
-
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4.6.1
+      - name: Upload IPA to GoFile
+        uses: toiletpuppy/gofile@New
         with:
-          name: Stay-unsigned.ipa
-          path: Stay-unsigned.ipa
+          files: "Stay.ipa"
+
