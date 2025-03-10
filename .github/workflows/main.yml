@@ -8,40 +8,47 @@ on:
 jobs:
   build-and-upload:
     runs-on: macos-latest
+
     steps:
-      - name: Checkout repository
+      - name: Check out code
         uses: actions/checkout@v3
 
-      - name: Install CocoaPods Dependencies
+      - name: Install CocoaPods
         run: |
-          # Install CocoaPods if not already available and run pod install.
-          gem install cocoapods
+          # Install CocoaPods if not already installed.
+          sudo gem install cocoapods
+          # Install pod dependencies (this creates/updates the Pods folder and .xcworkspace)
           pod install
 
-      - name: Archive the Xcode Project (Disable Code Signing)
+      - name: Build Unsigned IPA
         run: |
-          # Clean and archive the project with signing disabled.
-          xcodebuild clean archive \
-            -project Stay.xcodeproj \
+          # Build the project using the workspace and scheme.
+          # We disable code signing by setting related flags to empty/NO.
+          # Additionally, we override OTHER_LDFLAGS to an empty value to skip linking libraries
+          # (like InterAppCommunication or SDWebImage) that are causing errors.
+          xcodebuild \
+            -workspace "Stay.xcworkspace" \
             -scheme "Stay" \
-            -configuration Release \
-            -archivePath build/Stay.xcarchive \
-            CODE_SIGNING_ALLOWED=NO
+            -configuration "Release" \
+            -sdk "iphoneos" \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            OTHER_LDFLAGS=""
 
-      - name: Create Unsigned IPA from Archive
-        run: |
-          # The archive (.xcarchive) contains the built app at:
-          #   build/Stay.xcarchive/Products/Applications/Stay.app
-          #
-          # Create a Payload folder, copy the .app, then zip and rename to .ipa.
-          mkdir -p build/Payload
-          cp -R build/Stay.xcarchive/Products/Applications/Stay.app build/Payload/
-          cd build
+          # Create a Payload directory and copy the built .app into it.
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/Stay.app Payload/
+          # Zip the Payload directory and rename it as an IPA.
           zip -r Stay.zip Payload
           mv Stay.zip Stay.ipa
-          ls -l Stay.ipa
+          ls -lh Stay.ipa
 
       - name: Upload IPA to GoFile
         uses: toiletpuppy/gofile@New
         with:
-          files: "build/Stay.ipa"
+          files: "Stay.ipa"
